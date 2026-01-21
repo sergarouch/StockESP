@@ -30,8 +30,8 @@ SSD1306Wire display(OLED_I2C_ADDR, OLED_SDA_PIN, OLED_SCL_PIN);
 WiFiMulti wifiMulti;
 
 // Build arrays from config
-const String stockSymbols[] = {STOCK_1, STOCK_2, STOCK_3, STOCK_4, STOCK_5};
-const float sharesOwned[] = {SHARES_STOCK_1, SHARES_STOCK_2, SHARES_STOCK_3, SHARES_STOCK_4, SHARES_STOCK_5};
+const String stockSymbols[] = {STOCK_1, STOCK_2, STOCK_3, STOCK_4};
+const float sharesOwned[] = {SHARES_STOCK_1, SHARES_STOCK_2, SHARES_STOCK_3, SHARES_STOCK_4};
 const String apiKey = FINNHUB_API_KEY;
 const unsigned long REFRESH_INTERVAL = REFRESH_SECONDS * 1000;
 
@@ -292,9 +292,7 @@ void displayPrices() {
       display.drawString(0, y, stocks[i].symbol + ": --");
     }
     y += 12;
-  }
-  
-  display.drawString(90, 54, "[PRICE]");
+  }  
   display.display();
 }
 
@@ -345,7 +343,6 @@ void displayHoldings() {
   }
   display.drawString(90, y, changeStr);
   
-  display.drawString(85, 54, "[HOLD]");
   display.display();
 }
 
