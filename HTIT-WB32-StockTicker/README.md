@@ -71,24 +71,43 @@ The HTIT-WB32 uses a CP210x USB-to-Serial chip. If your computer doesn't recogni
 
 ## Configuration
 
-Edit these values in `HTIT-WB32-StockTicker.ino`:
+All settings are in a separate **`config.h`** file for easy editing. Open `config.h` and customize:
 
 ```cpp
-// WiFi credentials
-#define SSID1 "YOUR_WIFI_SSID"
-#define PW1   "YOUR_WIFI_PASSWORD"
+// ==================== WiFi Settings ====================
+#define WIFI_SSID_1     "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD_1 "YOUR_WIFI_PASSWORD"
 
-// Finnhub API key
-const String FINNHUB_API_KEY = "YOUR_FINNHUB_API_KEY";
+// ==================== Finnhub API ====================
+#define FINNHUB_API_KEY "YOUR_FINNHUB_API_KEY"
 
-// Stock tickers to display
-const String stockSymbols[] = {"AAPL", "TSLA", "NVDA", "MSFT", "GOOGL"};
+// ==================== Stock Tickers ====================
+#define STOCK_1  "TSLA"
+#define STOCK_2  "AAPL"
+#define STOCK_3  "NVDA"
+#define STOCK_4  "MSFT"
+#define STOCK_5  "GOOGL"
 
-// Shares owned (for portfolio calculation)
-const float sharesOwned[] = {10.0, 5.0, 15.0, 8.0, 3.0};
+#define NUM_STOCKS 5
 
-// Refresh interval (milliseconds)
-const unsigned long REFRESH_INTERVAL = 15000;
+// ==================== Portfolio (Shares Owned) ====================
+#define SHARES_STOCK_1  80.0    // TSLA shares
+#define SHARES_STOCK_2  10.0    // AAPL shares
+#define SHARES_STOCK_3  5.0     // NVDA shares
+#define SHARES_STOCK_4  0.0     // MSFT shares
+#define SHARES_STOCK_5  0.0     // GOOGL shares
+
+// ==================== Display Settings ====================
+#define REFRESH_SECONDS 15
+#define FLIP_DISPLAY true
+```
+
+### File Structure
+```
+HTIT-WB32-StockTicker/
+├── HTIT-WB32-StockTicker.ino   # Main code (don't need to edit)
+├── config.h                     # ⬅️ Edit this file!
+└── README.md
 ```
 
 ## Stock Symbols

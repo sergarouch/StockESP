@@ -7,6 +7,10 @@
  * Hardware: HTIT-WB32 / Heltec WiFi Kit 32 V2
  * Display: 0.96" SSD1306 OLED (128x64)
  * 
+ * ==============================================
+ *  CONFIGURATION: Edit config.h to customize!
+ * ==============================================
+ * 
  * Required Libraries (install via Library Manager):
  * 1. "ESP8266 and ESP32 OLED driver for SSD1306 displays" by ThingPulse
  * 2. "Arduino_JSON" by Arduino
@@ -17,43 +21,19 @@
 #include <Wire.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
-#include "SSD1306Wire.h"  // From "ESP8266 and ESP32 OLED driver for SSD1306 displays"
+#include "SSD1306Wire.h"
+#include "config.h"  // <-- User configuration file
 
-// HTIT-WB32 V2 OLED pins
-#define OLED_SDA 4
-#define OLED_SCL 15
-#define OLED_RST 16
-
-// Initialize display (I2C address 0x3c, SDA, SCL)
-SSD1306Wire display(0x3c, OLED_SDA, OLED_SCL);
+// Initialize display
+SSD1306Wire display(OLED_I2C_ADDR, OLED_SDA_PIN, OLED_SCL_PIN);
 
 WiFiMulti wifiMulti;
 
-// ==================== CONFIGURATION ====================
-// WiFi credentials (supports multiple networks)
-#define SSID1 "Fios-mNDZ4"
-#define PW1   "craft97try69zap"
-
-#define SSID2 ""  // Optional second network
-#define PW2   ""
-
-// Finnhub API key - Get free at https://finnhub.io/
-const String FINNHUB_API_KEY = "d5o1mlpr01qma2b71hhgd5o1mlpr01qma2b71hi0";
-
-// Stock tickers to display (use standard symbols like AAPL, TSLA, NVDA, etc.)
-const String stockSymbols[] = {"TSLA", "SOFI", "NVDA", "VIX"};
-const int NUM_STOCKS = sizeof(stockSymbols) / sizeof(stockSymbols[0]);
-
-// Amount of shares owned for each stock (for holdings calculation)
-const float sharesOwned[] = {80.0, 20.0, 0.0, 0.0, 0.0};
-
-// Refresh interval in milliseconds (Finnhub free tier: 60 calls/min)
-const unsigned long REFRESH_INTERVAL = 15000;  // 15 seconds
-
-// ==================== END CONFIGURATION ====================
-
-// Pin definitions
-const int BUTTON_PIN = 0;  // Built-in PRG button on HTIT-WB32
+// Build arrays from config
+const String stockSymbols[] = {STOCK_1, STOCK_2, STOCK_3, STOCK_4, STOCK_5};
+const float sharesOwned[] = {SHARES_STOCK_1, SHARES_STOCK_2, SHARES_STOCK_3, SHARES_STOCK_4, SHARES_STOCK_5};
+const String apiKey = FINNHUB_API_KEY;
+const unsigned long REFRESH_INTERVAL = REFRESH_SECONDS * 1000;
 
 // Display modes
 enum DisplayMode {
@@ -75,7 +55,7 @@ struct StockData {
 };
 
 // Global variables
-StockData stocks[5];  // Max 5 stocks
+StockData stocks[5];
 volatile DisplayMode currentMode = MODE_PRICES;
 volatile int detailStockIndex = 0;
 volatile bool buttonPressed = false;
@@ -88,17 +68,21 @@ void IRAM_ATTR buttonISR() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("\n=== HTIT-WB32 Stock Ticker ===");
+  Serial.println("Configuration loaded from config.h");
   
   // Reset OLED display (required for HTIT-WB32)
-  pinMode(OLED_RST, OUTPUT);
-  digitalWrite(OLED_RST, LOW);
+  pinMode(OLED_RST_PIN, OUTPUT);
+  digitalWrite(OLED_RST_PIN, LOW);
   delay(50);
-  digitalWrite(OLED_RST, HIGH);
+  digitalWrite(OLED_RST_PIN, HIGH);
   delay(50);
   
   // Initialize display
   display.init();
-  display.flipScreenVertically();
+  if (FLIP_DISPLAY) {
+    display.flipScreenVertically();
+  }
   display.setFont(ArialMT_Plain_10);
   display.clear();
   display.display();
@@ -142,7 +126,7 @@ void loop() {
   // Update display based on current mode
   updateDisplay();
   
-  delay(100);  // Small delay to prevent flickering
+  delay(100);
 }
 
 void displayStartupScreen() {
@@ -150,7 +134,7 @@ void displayStartupScreen() {
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.drawString(64, 10, "STOCK");
-  display.drawString(64, 28, "WATCH");
+  display.drawString(64, 28, "TICKER");
   display.setFont(ArialMT_Plain_10);
   display.drawString(64, 50, "HTIT-WB32");
   display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -164,24 +148,25 @@ void connectWiFi() {
   display.drawString(0, 0, "Connecting to WiFi...");
   display.display();
   
-  wifiMulti.addAP(SSID1, PW1);
-  if (strlen(SSID2) > 0) {
-    wifiMulti.addAP(SSID2, PW2);
+  // Add configured WiFi networks
+  wifiMulti.addAP(WIFI_SSID_1, WIFI_PASSWORD_1);
+  if (strlen(WIFI_SSID_2) > 0) {
+    wifiMulti.addAP(WIFI_SSID_2, WIFI_PASSWORD_2);
   }
   
+  Serial.print("Connecting to WiFi");
   int attempts = 0;
   while (wifiMulti.run() != WL_CONNECTED && attempts < 30) {
     delay(500);
     Serial.print(".");
-    
-    // Show progress dots
     display.drawString(attempts * 4, 15, ".");
     display.display();
     attempts++;
   }
   
   if (wifiMulti.run() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected");
+    Serial.println("\nWiFi connected!");
+    Serial.println("SSID: " + WiFi.SSID());
     Serial.println("IP: " + WiFi.localIP().toString());
     
     display.clear();
@@ -191,7 +176,8 @@ void connectWiFi() {
     display.display();
     delay(1500);
   } else {
-    displayMessage("WiFi Failed!", "Check credentials");
+    Serial.println("\nWiFi connection failed!");
+    displayMessage("WiFi Failed!", "Check config.h");
   }
 }
 
@@ -200,6 +186,7 @@ void fetchAllStockData() {
   
   for (int i = 0; i < NUM_STOCKS && i < 5; i++) {
     fetchStockData(i);
+    delay(250);
   }
 }
 
@@ -209,8 +196,7 @@ void fetchStockData(int index) {
   HTTPClient http;
   String symbol = stockSymbols[index];
   
-  // Finnhub API endpoint for stock quote
-  String url = "https://finnhub.io/api/v1/quote?symbol=" + symbol + "&token=" + FINNHUB_API_KEY;
+  String url = "https://finnhub.io/api/v1/quote?symbol=" + symbol + "&token=" + apiKey;
   
   Serial.println("Fetching: " + symbol);
   http.begin(url);
@@ -225,12 +211,12 @@ void fetchStockData(int index) {
     
     if (JSON.typeof(data) != "undefined") {
       stocks[index].symbol = symbol;
-      stocks[index].currentPrice = (double)data["c"];      // Current price
-      stocks[index].change = (double)data["d"];            // Change
-      stocks[index].percentChange = (double)data["dp"];    // Percent change
-      stocks[index].previousClose = (double)data["pc"];    // Previous close
-      stocks[index].highPrice = (double)data["h"];         // Day high
-      stocks[index].lowPrice = (double)data["l"];          // Day low
+      stocks[index].currentPrice = (double)data["c"];
+      stocks[index].change = (double)data["d"];
+      stocks[index].percentChange = (double)data["dp"];
+      stocks[index].previousClose = (double)data["pc"];
+      stocks[index].highPrice = (double)data["h"];
+      stocks[index].lowPrice = (double)data["l"];
       stocks[index].valid = (stocks[index].currentPrice > 0);
       
       Serial.printf("%s: $%.2f (%.2f%%)\n", 
@@ -260,7 +246,7 @@ void handleButtonPress() {
     }
   }
   
-  Serial.println("Mode: " + String(currentMode) + ", Detail Index: " + String(detailStockIndex));
+  Serial.println("Mode changed: " + String(currentMode));
 }
 
 void updateDisplay() {
@@ -282,24 +268,19 @@ void displayPrices() {
   display.setFont(ArialMT_Plain_10);
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   
-  // Header
-  display.drawString(0, 0, "PRICES");
+  display.drawString(0, 0, "STOCK PRICES");
   display.drawHorizontalLine(0, 11, 128);
   
-  // Display up to 4 stocks in compact format
   int y = 14;
   int displayCount = min(NUM_STOCKS, 4);
   
   for (int i = 0; i < displayCount; i++) {
     if (stocks[i].valid) {
-      // Symbol
       display.drawString(0, y, stocks[i].symbol);
       
-      // Price
       String priceStr = "$" + formatPrice(stocks[i].currentPrice);
       display.drawString(35, y, priceStr);
       
-      // Change indicator and percentage
       String changeStr;
       if (stocks[i].percentChange >= 0) {
         changeStr = "+" + String(stocks[i].percentChange, 1) + "%";
@@ -313,9 +294,7 @@ void displayPrices() {
     y += 12;
   }
   
-  // Mode indicator at bottom
   display.drawString(90, 54, "[PRICE]");
-  
   display.display();
 }
 
@@ -324,7 +303,6 @@ void displayHoldings() {
   display.setFont(ArialMT_Plain_10);
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   
-  // Header
   display.drawString(0, 0, "PORTFOLIO VALUE");
   display.drawHorizontalLine(0, 11, 128);
   
@@ -351,7 +329,6 @@ void displayHoldings() {
     }
   }
   
-  // Total line
   display.drawHorizontalLine(0, y, 128);
   y += 2;
   
@@ -360,7 +337,6 @@ void displayHoldings() {
   String totalStr = "$" + formatPrice(totalValue);
   display.drawString(40, y, totalStr);
   
-  // Fix the string concatenation issue
   String changeStr;
   if (totalChange >= 0) {
     changeStr = "+$" + formatPrice(totalChange);
@@ -369,9 +345,7 @@ void displayHoldings() {
   }
   display.drawString(90, y, changeStr);
   
-  // Mode indicator
   display.drawString(85, 54, "[HOLD]");
-  
   display.display();
 }
 
@@ -386,20 +360,16 @@ void displayDetails() {
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   
-  // Large symbol header
   display.setFont(ArialMT_Plain_16);
   display.drawString(0, 0, stock.symbol);
   
-  // Navigation indicator
   display.setFont(ArialMT_Plain_10);
   String navStr = String(detailStockIndex + 1) + "/" + String(NUM_STOCKS);
   display.drawString(100, 0, navStr);
   
-  // Large current price
   display.setFont(ArialMT_Plain_24);
   display.drawString(0, 18, "$" + formatPrice(stock.currentPrice));
   
-  // Change info
   display.setFont(ArialMT_Plain_10);
   String changeStr;
   if (stock.change >= 0) {
@@ -409,7 +379,6 @@ void displayDetails() {
   }
   display.drawString(0, 44, changeStr);
   
-  // High/Low
   String hlStr = "H:" + formatPrice(stock.highPrice) + " L:" + formatPrice(stock.lowPrice);
   display.drawString(0, 54, hlStr);
   
@@ -427,7 +396,6 @@ void displayMessage(String line1, String line2) {
   display.display();
 }
 
-// Format price nicely (handles large and small values)
 String formatPrice(float price) {
   if (price >= 1000) {
     return String(price, 0);
