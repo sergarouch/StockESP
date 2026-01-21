@@ -1,30 +1,31 @@
 /**
- * HTIT-WB32 Stock Ticker Display
+ * HTIT-WB32 Stock Ticker Display (V2)
  * 
  * Displays real-time stock prices on the Heltec WiFi Kit 32 (HTIT-WB32)
  * Uses Finnhub.io API for stock data (free tier available)
  * 
- * Hardware: HTIT-WB32 / Heltec WiFi Kit 32
+ * Hardware: HTIT-WB32 / Heltec WiFi Kit 32 V2
  * Display: 0.96" SSD1306 OLED (128x64)
  * 
- * Features:
- * - Cycles through multiple stock tickers
- * - Shows current price, daily change, and percentage
- * - Button press cycles display modes (prices / holdings / details)
- * - Visual indicators for positive/negative changes
- * 
- * Setup:
- * 1. Get a free API key from https://finnhub.io/
- * 2. Install libraries: "Heltec ESP32 Dev-Boards", "Arduino_JSON"
- * 3. Fill in WiFi credentials and API key below
+ * Required Libraries (install via Library Manager):
+ * 1. "ESP8266 and ESP32 OLED driver for SSD1306 displays" by ThingPulse
+ * 2. "Arduino_JSON" by Arduino
  */
 
 #include <WiFi.h>
 #include <WiFiMulti.h>
-#include "heltec.h"
-#include <String.h>
+#include <Wire.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
+#include "SSD1306Wire.h"  // From "ESP8266 and ESP32 OLED driver for SSD1306 displays"
+
+// HTIT-WB32 V2 OLED pins
+#define OLED_SDA 4
+#define OLED_SCL 15
+#define OLED_RST 16
+
+// Initialize display (I2C address 0x3c, SDA, SCL)
+SSD1306Wire display(0x3c, OLED_SDA, OLED_SCL);
 
 WiFiMulti wifiMulti;
 
@@ -40,11 +41,11 @@ WiFiMulti wifiMulti;
 const String FINNHUB_API_KEY = "YOUR_FINNHUB_API_KEY";
 
 // Stock tickers to display (use standard symbols like AAPL, TSLA, NVDA, etc.)
-const String stockSymbols[] = {"AAPL", "TSLA", "NVDA", "MSFT", "GOOGL"};
+const String stockSymbols[] = {"TSLA", "SOFI", "NVDA", "MSFT", "GOOGL"};
 const int NUM_STOCKS = sizeof(stockSymbols) / sizeof(stockSymbols[0]);
 
 // Amount of shares owned for each stock (for holdings calculation)
-const float sharesOwned[] = {10.0, 5.0, 15.0, 8.0, 3.0};
+const float sharesOwned[] = {80.0, 0.0, 0.0, 0.0, 0.0};
 
 // Refresh interval in milliseconds (Finnhub free tier: 60 calls/min)
 const unsigned long REFRESH_INTERVAL = 15000;  // 15 seconds
@@ -88,10 +89,19 @@ void IRAM_ATTR buttonISR() {
 void setup() {
   Serial.begin(115200);
   
-  // Initialize Heltec display
-  Heltec.begin(true /*DisplayEnable*/, false /*LoRa Disable*/, true /*Serial Enable*/);
-  Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->clear();
+  // Reset OLED display (required for HTIT-WB32)
+  pinMode(OLED_RST, OUTPUT);
+  digitalWrite(OLED_RST, LOW);
+  delay(50);
+  digitalWrite(OLED_RST, HIGH);
+  delay(50);
+  
+  // Initialize display
+  display.init();
+  display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_10);
+  display.clear();
+  display.display();
   
   // Setup button interrupt
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -136,22 +146,23 @@ void loop() {
 }
 
 void displayStartupScreen() {
-  Heltec.display->clear();
-  Heltec.display->setFont(ArialMT_Plain_16);
-  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-  Heltec.display->drawString(64, 10, "STOCK");
-  Heltec.display->drawString(64, 28, "TICKER");
-  Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawString(64, 50, "HTIT-WB32");
-  Heltec.display->setTextAlignment(TEXT_ALIGN_LEFT);
-  Heltec.display->display();
+  display.clear();
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 10, "STOCK");
+  display.drawString(64, 28, "TICKER");
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(64, 50, "HTIT-WB32");
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.display();
 }
 
 void connectWiFi() {
-  Heltec.display->clear();
-  Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawString(0, 0, "Connecting to WiFi...");
-  Heltec.display->display();
+  display.clear();
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.drawString(0, 0, "Connecting to WiFi...");
+  display.display();
   
   wifiMulti.addAP(SSID1, PW1);
   if (strlen(SSID2) > 0) {
@@ -163,9 +174,9 @@ void connectWiFi() {
     delay(500);
     Serial.print(".");
     
-    // Show progress
-    Heltec.display->drawString(attempts * 4, 15, ".");
-    Heltec.display->display();
+    // Show progress dots
+    display.drawString(attempts * 4, 15, ".");
+    display.display();
     attempts++;
   }
   
@@ -173,11 +184,11 @@ void connectWiFi() {
     Serial.println("\nWiFi connected");
     Serial.println("IP: " + WiFi.localIP().toString());
     
-    Heltec.display->clear();
-    Heltec.display->drawString(0, 0, "WiFi Connected!");
-    Heltec.display->drawString(0, 12, "IP: " + WiFi.localIP().toString());
-    Heltec.display->drawString(0, 24, "SSID: " + WiFi.SSID());
-    Heltec.display->display();
+    display.clear();
+    display.drawString(0, 0, "WiFi Connected!");
+    display.drawString(0, 12, "IP: " + WiFi.localIP().toString());
+    display.drawString(0, 24, "SSID: " + WiFi.SSID());
+    display.display();
     delay(1500);
   } else {
     displayMessage("WiFi Failed!", "Check credentials");
@@ -189,7 +200,7 @@ void fetchAllStockData() {
   
   for (int i = 0; i < NUM_STOCKS && i < 5; i++) {
     fetchStockData(i);
-    delay(200);  // Small delay between API calls
+    delay(250);  // Small delay between API calls
   }
 }
 
@@ -268,12 +279,13 @@ void updateDisplay() {
 }
 
 void displayPrices() {
-  Heltec.display->clear();
-  Heltec.display->setFont(ArialMT_Plain_10);
+  display.clear();
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
   
   // Header
-  Heltec.display->drawString(0, 0, "STOCK PRICES");
-  Heltec.display->drawHorizontalLine(0, 11, 128);
+  display.drawString(0, 0, "STOCK PRICES");
+  display.drawHorizontalLine(0, 11, 128);
   
   // Display up to 4 stocks in compact format
   int y = 14;
@@ -282,42 +294,40 @@ void displayPrices() {
   for (int i = 0; i < displayCount; i++) {
     if (stocks[i].valid) {
       // Symbol
-      Heltec.display->drawString(0, y, stocks[i].symbol);
+      display.drawString(0, y, stocks[i].symbol);
       
-      // Price (right-aligned at x=70)
+      // Price
       String priceStr = "$" + formatPrice(stocks[i].currentPrice);
-      Heltec.display->drawString(35, y, priceStr);
+      display.drawString(35, y, priceStr);
       
       // Change indicator and percentage
-      String changeStr = (stocks[i].percentChange >= 0 ? "+" : "") + 
-                         String(stocks[i].percentChange, 1) + "%";
-      
-      // Draw arrow indicator
+      String changeStr;
       if (stocks[i].percentChange >= 0) {
-        Heltec.display->drawString(90, y, "^" + changeStr);
+        changeStr = "+" + String(stocks[i].percentChange, 1) + "%";
       } else {
-        Heltec.display->drawString(90, y, "v" + changeStr);
+        changeStr = String(stocks[i].percentChange, 1) + "%";
       }
+      display.drawString(90, y, changeStr);
     } else {
-      Heltec.display->drawString(0, y, stocks[i].symbol + ": --");
+      display.drawString(0, y, stocks[i].symbol + ": --");
     }
     y += 12;
   }
   
   // Mode indicator at bottom
-  Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawString(90, 54, "[PRICE]");
+  display.drawString(90, 54, "[PRICE]");
   
-  Heltec.display->display();
+  display.display();
 }
 
 void displayHoldings() {
-  Heltec.display->clear();
-  Heltec.display->setFont(ArialMT_Plain_10);
+  display.clear();
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
   
   // Header
-  Heltec.display->drawString(0, 0, "PORTFOLIO VALUE");
-  Heltec.display->drawHorizontalLine(0, 11, 128);
+  display.drawString(0, 0, "PORTFOLIO VALUE");
+  display.drawHorizontalLine(0, 11, 128);
   
   float totalValue = 0;
   float totalChange = 0;
@@ -333,32 +343,37 @@ void displayHoldings() {
       totalChange += dayChange;
       
       String line = stocks[i].symbol + " " + String((int)sharesOwned[i]) + "x";
-      Heltec.display->drawString(0, y, line);
+      display.drawString(0, y, line);
       
       String valueStr = "$" + formatPrice(value);
-      Heltec.display->drawString(70, y, valueStr);
+      display.drawString(70, y, valueStr);
       
       y += 12;
     }
   }
   
   // Total line
-  Heltec.display->drawHorizontalLine(0, y, 128);
+  display.drawHorizontalLine(0, y, 128);
   y += 2;
   
-  Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawString(0, y, "TOTAL:");
+  display.drawString(0, y, "TOTAL:");
   
   String totalStr = "$" + formatPrice(totalValue);
-  Heltec.display->drawString(40, y, totalStr);
+  display.drawString(40, y, totalStr);
   
-  String changeStr = (totalChange >= 0 ? "+" : "") + "$" + formatPrice(abs(totalChange));
-  Heltec.display->drawString(90, y, changeStr);
+  // Fix the string concatenation issue
+  String changeStr;
+  if (totalChange >= 0) {
+    changeStr = "+$" + formatPrice(totalChange);
+  } else {
+    changeStr = "-$" + formatPrice(abs(totalChange));
+  }
+  display.drawString(90, y, changeStr);
   
   // Mode indicator
-  Heltec.display->drawString(85, 54, "[HOLD]");
+  display.drawString(85, 54, "[HOLD]");
   
-  Heltec.display->display();
+  display.display();
 }
 
 void displayDetails() {
@@ -369,47 +384,48 @@ void displayDetails() {
   
   StockData& stock = stocks[detailStockIndex];
   
-  Heltec.display->clear();
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
   
   // Large symbol header
-  Heltec.display->setFont(ArialMT_Plain_16);
-  Heltec.display->drawString(0, 0, stock.symbol);
+  display.setFont(ArialMT_Plain_16);
+  display.drawString(0, 0, stock.symbol);
   
   // Navigation indicator
-  Heltec.display->setFont(ArialMT_Plain_10);
+  display.setFont(ArialMT_Plain_10);
   String navStr = String(detailStockIndex + 1) + "/" + String(NUM_STOCKS);
-  Heltec.display->drawString(100, 0, navStr);
+  display.drawString(100, 0, navStr);
   
   // Large current price
-  Heltec.display->setFont(ArialMT_Plain_24);
-  Heltec.display->drawString(0, 18, "$" + formatPrice(stock.currentPrice));
+  display.setFont(ArialMT_Plain_24);
+  display.drawString(0, 18, "$" + formatPrice(stock.currentPrice));
   
   // Change info
-  Heltec.display->setFont(ArialMT_Plain_10);
-  String changeStr = (stock.change >= 0 ? "+" : "") + 
-                     String(stock.change, 2) + " (" + 
-                     String(stock.percentChange, 2) + "%)";
-  Heltec.display->drawString(0, 44, changeStr);
+  display.setFont(ArialMT_Plain_10);
+  String changeStr;
+  if (stock.change >= 0) {
+    changeStr = "+" + String(stock.change, 2) + " (+" + String(stock.percentChange, 2) + "%)";
+  } else {
+    changeStr = String(stock.change, 2) + " (" + String(stock.percentChange, 2) + "%)";
+  }
+  display.drawString(0, 44, changeStr);
   
   // High/Low
   String hlStr = "H:" + formatPrice(stock.highPrice) + " L:" + formatPrice(stock.lowPrice);
-  Heltec.display->drawString(0, 54, hlStr);
+  display.drawString(0, 54, hlStr);
   
-  // Mode indicator
-  Heltec.display->drawString(88, 54, "[DETAIL]");
-  
-  Heltec.display->display();
+  display.display();
 }
 
 void displayMessage(String line1, String line2) {
-  Heltec.display->clear();
-  Heltec.display->setFont(ArialMT_Plain_16);
-  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-  Heltec.display->drawString(64, 15, line1);
-  Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawString(64, 40, line2);
-  Heltec.display->setTextAlignment(TEXT_ALIGN_LEFT);
-  Heltec.display->display();
+  display.clear();
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 15, line1);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(64, 40, line2);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.display();
 }
 
 // Format price nicely (handles large and small values)
