@@ -31,21 +31,21 @@ WiFiMulti wifiMulti;
 
 // ==================== CONFIGURATION ====================
 // WiFi credentials (supports multiple networks)
-#define SSID1 "YOUR_WIFI_SSID"
-#define PW1   "YOUR_WIFI_PASSWORD"
+#define SSID1 "Fios-mNDZ4"
+#define PW1   "craft97try69zap"
 
 #define SSID2 ""  // Optional second network
 #define PW2   ""
 
 // Finnhub API key - Get free at https://finnhub.io/
-const String FINNHUB_API_KEY = "YOUR_FINNHUB_API_KEY";
+const String FINNHUB_API_KEY = "d5o1mlpr01qma2b71hhgd5o1mlpr01qma2b71hi0";
 
 // Stock tickers to display (use standard symbols like AAPL, TSLA, NVDA, etc.)
-const String stockSymbols[] = {"TSLA", "SOFI", "NVDA", "MSFT", "GOOGL"};
+const String stockSymbols[] = {"TSLA", "SOFI", "NVDA", "VIX"};
 const int NUM_STOCKS = sizeof(stockSymbols) / sizeof(stockSymbols[0]);
 
 // Amount of shares owned for each stock (for holdings calculation)
-const float sharesOwned[] = {80.0, 0.0, 0.0, 0.0, 0.0};
+const float sharesOwned[] = {80.0, 20.0, 0.0, 0.0, 0.0};
 
 // Refresh interval in milliseconds (Finnhub free tier: 60 calls/min)
 const unsigned long REFRESH_INTERVAL = 15000;  // 15 seconds
@@ -150,7 +150,7 @@ void displayStartupScreen() {
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.drawString(64, 10, "STOCK");
-  display.drawString(64, 28, "TICKER");
+  display.drawString(64, 28, "WATCH");
   display.setFont(ArialMT_Plain_10);
   display.drawString(64, 50, "HTIT-WB32");
   display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -200,7 +200,6 @@ void fetchAllStockData() {
   
   for (int i = 0; i < NUM_STOCKS && i < 5; i++) {
     fetchStockData(i);
-    delay(250);  // Small delay between API calls
   }
 }
 
@@ -284,7 +283,7 @@ void displayPrices() {
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   
   // Header
-  display.drawString(0, 0, "STOCK PRICES");
+  display.drawString(0, 0, "PRICES");
   display.drawHorizontalLine(0, 11, 128);
   
   // Display up to 4 stocks in compact format
